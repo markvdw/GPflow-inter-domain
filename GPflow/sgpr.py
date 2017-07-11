@@ -14,13 +14,16 @@
 
 
 from __future__ import absolute_import
-import tensorflow as tf
+
 import numpy as np
-from .model import GPModel
-from .param import Param, DataHolder
-from .mean_functions import Zero
+import tensorflow as tf
+
 from . import likelihoods
 from ._settings import settings
+from .mean_functions import Zero
+from .model import GPModel
+from .param import Param, DataHolder
+
 float_type = settings.dtypes.float_type
 
 
@@ -74,8 +77,8 @@ class SGPR(GPModel):
 
         err = self.Y - self.mean_function(self.X)
         Kdiag = self.kern.Kdiag(self.X)
-        Kuf = self.kern.K(self.Z, self.X)
-        Kuu = self.kern.K(self.Z) + tf.eye(num_inducing, dtype=float_type) * settings.numerics.jitter_level
+        Kuf = self.kern.Kzx(self.Z, self.X)
+        Kuu = self.kern.Kzz(self.Z) + tf.eye(num_inducing, dtype=float_type) * settings.numerics.jitter_level
         L = tf.cholesky(Kuu)
         sigma = tf.sqrt(self.likelihood.variance)
 
@@ -106,9 +109,9 @@ class SGPR(GPModel):
         """
         num_inducing = tf.shape(self.Z)[0]
         err = self.Y - self.mean_function(self.X)
-        Kuf = self.kern.K(self.Z, self.X)
-        Kuu = self.kern.K(self.Z) + tf.eye(num_inducing, dtype=float_type) * settings.numerics.jitter_level
-        Kus = self.kern.K(self.Z, Xnew)
+        Kuf = self.kern.Kzx(self.Z, self.X)
+        Kuu = self.kern.Kzz(self.Z) + tf.eye(num_inducing, dtype=float_type) * settings.numerics.jitter_level
+        Kus = self.kern.Kzx(self.Z, Xnew)
         sigma = tf.sqrt(self.likelihood.variance)
         L = tf.cholesky(Kuu)
         A = tf.matrix_triangular_solve(L, Kuf, lower=True) / sigma
@@ -170,8 +173,8 @@ class GPRFITC(GPModel):
         num_inducing = tf.shape(self.Z)[0]
         err = self.Y - self.mean_function(self.X)  # size N x R
         Kdiag = self.kern.Kdiag(self.X)
-        Kuf = self.kern.K(self.Z, self.X)
-        Kuu = self.kern.K(self.Z) + tf.eye(num_inducing, dtype=float_type) * settings.numerics.jitter_level
+        Kuf = self.kern.Kzx(self.Z, self.X)
+        Kuu = self.kern.Kzz(self.Z) + tf.eye(num_inducing, dtype=float_type) * settings.numerics.jitter_level
 
         Luu = tf.cholesky(Kuu)  # => Luu Luu^T = Kuu
         V = tf.matrix_triangular_solve(Luu, Kuf)  # => V^T V = Qff = Kuf^T Kuu^-1 Kuf
@@ -238,7 +241,7 @@ class GPRFITC(GPModel):
         Xnew.
         """
         _, _, Luu, L, _, _, gamma = self.build_common_terms()
-        Kus = self.kern.K(self.Z, Xnew)  # size  M x Xnew
+        Kus = self.kern.Kzx(self.Z, Xnew)  # size  M x Xnew
 
         w = tf.matrix_triangular_solve(Luu, Kus, lower=True)  # size M x Xnew
 
@@ -254,5 +257,4 @@ class GPRFITC(GPModel):
             var = self.kern.Kdiag(Xnew) - tf.reduce_sum(tf.square(w), 0) \
                   + tf.reduce_sum(tf.square(intermediateA), 0)  # size Xnew,
             var = tf.tile(tf.expand_dims(var, 1), tf.stack([1, tf.shape(self.Y)[1]]))
-
         return mean, var

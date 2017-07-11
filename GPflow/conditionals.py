@@ -62,8 +62,9 @@ def conditional(Xnew, X, kern, f, full_cov=False, q_sqrt=None, whiten=False):
     # compute kernel stuff
     num_data = tf.shape(X)[0]  # M
     num_func = tf.shape(f)[1]  # K
-    Kmn = kern.K(X, Xnew)
-    Kmm = kern.K(X) + tf.eye(num_data, dtype=float_type) * settings.numerics.jitter_level
+
+    Kmn = kern.Kzx(X, Xnew)
+    Kmm = kern.Kzz(X) + tf.eye(num_data, dtype=float_type) * settings.numerics.jitter_level
     Lm = tf.cholesky(Kmm)
 
     # Compute the projection matrix A

@@ -44,7 +44,7 @@ class TriDiagonalBlockRep(object):
         xm = tf.slice(x, [0, 0, 0], tf.stack([N - 1, -1, -1]))
         xp = x[1:, :, :]
         diagblocks = tf.matmul(x, x, transpose_a=True)
-        offblocks = tf.concat_v2([tf.matmul(xm, xp, transpose_a=True), tf.zeros((1, D, D), 0, dtype=tf.float64)])
+        offblocks = tf.concat([tf.matmul(xm, xp, transpose_a=True), tf.zeros((1, D, D), 0, dtype=tf.float64)])
         return tf.stack([diagblocks, offblocks])
 
     def __str__(self):

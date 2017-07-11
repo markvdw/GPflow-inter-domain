@@ -51,7 +51,7 @@ class Kern(Parameterized):
         but we store it as a slice for efficiency.
         """
         Parameterized.__init__(self)
-        self.scoped_keys.extend(['K', 'Kdiag'])
+        self.scoped_keys.extend(['K', 'Kdiag', 'Kzx', 'Kzz'])
         self.input_dim = int(input_dim)
         if active_dims is None:
             self.active_dims = slice(input_dim)
@@ -116,6 +116,27 @@ class Kern(Parameterized):
     def __mul__(self, other):
         return Prod([self, other])
 
+    def Kzx(self, Z, X):
+        """
+        Inter-domain kernel function. Default is set here, and is where inducing points live in the same space as the
+        input points.
+        """
+        return self.K(Z, X)
+
+    def Kzz(self, Z):
+        """
+        Inter-domain kernel function. Default is set here, and is where inducing points live in the same space as the
+        input points.
+        """
+        return self.K(Z)
+
+    def num_inducing_params(self, D):
+        """
+        Returns:
+            Number of inducing parameters per input dimension.
+        """
+        return D
+
     @AutoFlow((float_type, [None, None]), (float_type, [None, None]))
     def compute_K(self, X, Z):
         return self.K(X, Z)
@@ -123,6 +144,14 @@ class Kern(Parameterized):
     @AutoFlow((float_type, [None, None]))
     def compute_K_symm(self, X):
         return self.K(X)
+
+    @AutoFlow((float_type,), (float_type, [None, None]))
+    def compute_Kzx(self, Z, X):
+        return self.Kzx(Z, X)
+
+    @AutoFlow((float_type,))
+    def compute_Kzz(self, Z):
+        return self.Kzz(Z)
 
     @AutoFlow((float_type, [None, None]))
     def compute_Kdiag(self, X):
@@ -356,6 +385,39 @@ class RBF(Stationary):
         if not presliced:
             X, X2 = self._slice(X, X2)
         return self.variance * tf.exp(-self.square_dist(X, X2) / 2)
+
+
+class RBFMultiscale(RBF):
+    def _sliceZ(self, Z):
+        if isinstance(self.active_dims, slice):
+            Z = Z[:, self.active_dims, :]
+            return Z
+        else:  # TODO: when tf can do fancy indexing, use that.
+            Z = tf.transpose(tf.stack([Z[:, i, :] for i in self.active_dims]))
+            return Z
+
+    def _cust_square_dist(self, A, B, sc):
+        return tf.reduce_sum(tf.square((tf.expand_dims(A, 1) - tf.expand_dims(B, 0)) / sc), 2)
+
+    def Kzx(self, Z, X):
+        X, _ = self._slice(X, None)
+        Z = self._sliceZ(Z)
+        Zmu = Z[:, :, 0]
+        Zlen = tf.exp(Z[:, :, 1])
+        idlengthscales = self.lengthscales + Zlen
+        d = self._cust_square_dist(X, Zmu, idlengthscales)
+        return tf.transpose(
+            self.variance * tf.exp(-d / 2) * tf.reshape(tf.reduce_prod(self.lengthscales / idlengthscales, 1), (1, -1)))
+
+    def Kzz(self, Z):
+        Z = self._sliceZ(Z)
+        Zmu = Z[:, :, 0]
+        Zlen = tf.exp(Z[:, :, 1])
+        idlengthscales2 = tf.square(self.lengthscales + Zlen)
+        sc = tf.sqrt(
+            tf.expand_dims(idlengthscales2, 0) + tf.expand_dims(idlengthscales2, 1) - tf.square(self.lengthscales))
+        d = self._cust_square_dist(Zmu, Zmu, sc)
+        return self.variance * tf.exp(-d / 2) * tf.reduce_prod(self.lengthscales / sc, 2)
 
 
 class Linear(Kern):
@@ -763,6 +825,12 @@ class Add(Combination):
 
     def Kdiag(self, X, presliced=False):
         return reduce(tf.add, [k.Kdiag(X) for k in self.kern_list])
+
+    def Kzx(self, Z, X):
+        return reduce(tf.add, [k.Kzx(Z, X) for k in self.kern_list])
+
+    def Kzz(self, Z):
+        return reduce(tf.add, [k.Kzz(Z) for k in self.kern_list])
 
 
 class Prod(Combination):

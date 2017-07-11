@@ -74,6 +74,7 @@ class Identity(Transform):
     """
     The identity transform: y = x
     """
+
     def tf_forward(self, x):
         return tf.identity(x)
 
@@ -99,6 +100,7 @@ class Exp(Transform):
     x is a free variable, y is always positive. The epsilon value (self.lower)
     prevents the optimizer reaching numerical zero. 
     """
+
     def __init__(self, lower=1e-6):
         self._lower = lower
 
@@ -193,6 +195,7 @@ class Logistic(Transform):
        y = a + (b-a) s(x)
        s(x) = 1 / (1 + \exp(-x))
    """
+
     def __init__(self, a=0., b=1.):
         Transform.__init__(self)
         assert b > a
@@ -218,7 +221,7 @@ class Logistic(Transform):
 
 class Rescale(Transform):
     """
-    A transform that can linearly rescale parameters, in conjucntion with
+    A transform that can linearly rescale parameters, in conjunction with
     another transform. By default, the identity transform is wrapped so
     .. math::
        y = factor * x
@@ -229,6 +232,7 @@ class Rescale(Transform):
 
     This is useful for avoiding optimization or MCMC over large or small scales.
     """
+
     def __init__(self, factor=1.0, chain_transform=Identity()):
         self.factor = factor
         self.chain_transform = chain_transform
@@ -244,7 +248,7 @@ class Rescale(Transform):
 
     def tf_log_jacobian(self, x):
         return tf.cast(tf.reduce_prod(tf.shape(x)), float_type) * \
-                self.factor * self.chain_transform.tf_log_jacobian(x * self.factor)
+               self.factor * self.chain_transform.tf_log_jacobian(x * self.factor)
 
     def __str__(self):
         return "R" + self.chain_transform.__str__()
@@ -361,7 +365,7 @@ class LowerTriangular(Transform):
         return y[np.tril_indices(len(y), 0)].T.flatten()
 
     def tf_forward(self, x):
-        fwd = tf.transpose(tfw.vec_to_tri(tf.reshape(x, (self.num_matrices, -1)),self.N), [1, 2, 0])
+        fwd = tf.transpose(tfw.vec_to_tri(tf.reshape(x, (self.num_matrices, -1)), self.N), [1, 2, 0])
         return tf.squeeze(fwd) if self.squeeze else fwd
 
     def tf_log_jacobian(self, x):

@@ -14,13 +14,16 @@
 
 
 from __future__ import print_function, absolute_import
-from .param import Parameterized, AutoFlow, DataHolder
-from scipy.optimize import minimize, OptimizeResult
+
+import sys
+
 import numpy as np
 import tensorflow as tf
+from scipy.optimize import minimize, OptimizeResult
+
 from . import hmc, session
 from ._settings import settings
-import sys
+from .param import Parameterized, AutoFlow, DataHolder
 
 float_type = settings.dtypes.float_type
 
@@ -94,9 +97,7 @@ class Model(Parameterized):
         self.scoped_keys.extend(['build_likelihood', 'build_prior'])
         self._name = name
         self._needs_recompile = True
-
         self.num_fevals = 0  # Keeps track of how often _objective is called
-
 
     @property
     def name(self):
@@ -219,6 +220,10 @@ class Model(Parameterized):
         """
 
         if type(method) is str:
+            if float_type is not tf.float64:
+                import warnings
+                warnings.warn("Deterministic optimisation usually needs float64, not %s." % str(float_type),
+                              np.VisibleDeprecationWarning)
             return self._optimize_np(method, tol, callback, maxiter, **kw)
         else:
             return self._optimize_tf(method, callback, maxiter, **kw)
