@@ -14,14 +14,17 @@
 
 
 from __future__ import absolute_import
+
+from contextlib import contextmanager
+from functools import wraps
+
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+
 from . import transforms, session
-from contextlib import contextmanager
-from functools import wraps
-from .scoping import NameScoped
 from ._settings import settings
+from .scoping import NameScoped
 
 float_type = settings.dtypes.float_type
 np_float_type = np.float32 if float_type is tf.float32 else np.float64
@@ -206,8 +209,9 @@ class Param(Parentable):
         start, _ = self.highest_parent.get_param_index(self)
         end = start + self.size
         samples = samples[:, start:end]
-        samples = samples.reshape((samples.shape[0],) + self.shape)
-        samples = np.atleast_1d(self.transform.forward(samples))
+        samples = samples.reshape((samples.shape[0],) + (self.transform.free_state_size(self.shape),))
+        samples = np.atleast_1d(np.concatenate(
+            [self.transform.forward(s).reshape((1,) + self.shape) for s in samples], 0))
         return pd.Series([v for v in samples], name=self.long_name)
 
     def make_tf_array(self, free_array):
@@ -793,7 +797,7 @@ class Parameterized(Parentable):
 
         This makes sure they're always in the same order.
         """
-        params=  [child for key, child in self.__dict__.items()
+        params = [child for key, child in self.__dict__.items()
                   if isinstance(child, (Param, Parameterized)) and
                   key is not '_parent']
         return sorted(params, key=lambda x: x.long_name)
