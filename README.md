@@ -1,3 +1,8 @@
+# GPflow inter-domain
+This package is a fork of GPflow (readme is maintained below) containing modifications to allow _inter-domain_ inducing variables. This package is released primarily in conjuction with the software for [convolutinal Gaussian processes](https://github.com/markvdw/convgp). While these features may eventually be merged into the main GPflow repo, this fork will remain in the mean time.
+
+See below for the GPflow readme for installation instructions.
+
 # GPflow
 
 GPflow is a package for building Gaussian process models in python, using [TensorFlow](http://www.tensorflow.org). It was originally created and is now managed by [James Hensman](http://www.lancaster.ac.uk/staff/hensmanj/) and [Alexander G. de G. Matthews](http://mlg.eng.cam.ac.uk/?portfolio=alex-matthews). 
