@@ -98,6 +98,7 @@ class Model(Parameterized):
         self._name = name
         self._needs_recompile = True
         self.num_fevals = 0  # Keeps track of how often _objective is called
+        self._tf_optimizer_var_init = None
 
     @property
     def name(self):
@@ -116,10 +117,15 @@ class Model(Parameterized):
         Parameterized.__setstate__(self, d)
         self._needs_recompile = True
 
+    def set_optimizer_variables_value(self, val_dict):
+        self._tf_optimizer_var_init = val_dict
+
     def _compile(self, optimizer=None):
         """
         compile the tensorflow function "self._objective"
         """
+        self._optimizer = optimizer
+
         self._graph = tf.Graph()
         self._session = session.get_session(graph=self._graph,
                                             output_file_name=settings.profiling.output_file_name + "_objective",
@@ -141,10 +147,16 @@ class Model(Parameterized):
             if optimizer is None:
                 opt_step = None
             else:
-                opt_step = optimizer.minimize(self._minusF,
-                                              var_list=[self._free_vars])
+                with tf.variable_scope("gpflow-opt"):
+                    opt_step = optimizer.minimize(self._minusF, var_list=[self._free_vars])
             init = tf.global_variables_initializer()
         self._session.run(init)
+
+        # Restore optimizer
+        if optimizer is not None and self._tf_optimizer_var_init is not None:
+            _, var_dict = self.get_optimizer_variables()
+            for var_name, val in self._tf_optimizer_var_init.items():
+                self._session.run(var_dict[var_name].assign(val))
 
         # build tensorflow functions for computing the likelihood
         if settings.verbosity.tf_compile_verb:
@@ -168,6 +180,14 @@ class Model(Parameterized):
         self._needs_recompile = False
 
         return opt_step
+
+    def get_optimizer_variables(self):
+        val_dict = {}
+        var_dict = {}
+        opt_vars = self._graph.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope="gpflow-opt")
+        val_dict.update([("model." + v.name, self._session.run(v)) for v in opt_vars])
+        var_dict.update([("model." + v.name, v) for v in opt_vars])
+        return val_dict, var_dict
 
     @AutoFlow()
     def compute_log_prior(self):
@@ -232,14 +252,20 @@ class Model(Parameterized):
         """
         Optimize the model using a tensorflow optimizer. See self.optimize()
         """
-        opt_step = self._compile(optimizer=method)
+        self._opt_step = self._compile(optimizer=method)
         feed_dict = {}
 
         try:
+            # Printing all variable values
+            for v in self._graph.get_collection(tf.GraphKeys.VARIABLES):
+                print(v.name)
+                print(self._session.run(v))
+                print("")
+
             iteration = 0
             while iteration < maxiter:
                 self.update_feed_dict(self._feed_dict_keys, feed_dict)
-                self._session.run(opt_step, feed_dict=feed_dict)
+                self._session.run(self._opt_step, feed_dict=feed_dict)
                 self.num_fevals += 1
                 if callback is not None:
                     callback(self._session.run(self._free_vars))
@@ -249,6 +275,14 @@ class Model(Parameterized):
                   with most recent state.")
             self.set_state(self._session.run(self._free_vars))
             return None
+
+        self.set_optimizer_variables_value(self.get_optimizer_variables()[0])
+
+        # Printing all variable values
+        for v in self._graph.get_collection(tf.GraphKeys.VARIABLES):
+            print(v.name)
+            print(self._session.run(v))
+            print("")
 
         final_x = self._session.run(self._free_vars)
         self.set_state(final_x)
