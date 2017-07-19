@@ -257,10 +257,10 @@ class Model(Parameterized):
 
         try:
             # Printing all variable values
-            for v in self._graph.get_collection(tf.GraphKeys.VARIABLES):
-                print(v.name)
-                print(self._session.run(v))
-                print("")
+            # for v in self._graph.get_collection(tf.GraphKeys.VARIABLES):
+            #     print(v.name)
+            #     print(self._session.run(v))
+            #     print("")
 
             iteration = 0
             while iteration < maxiter:
@@ -278,11 +278,11 @@ class Model(Parameterized):
 
         self.set_optimizer_variables_value(self.get_optimizer_variables()[0])
 
-        # Printing all variable values
-        for v in self._graph.get_collection(tf.GraphKeys.VARIABLES):
-            print(v.name)
-            print(self._session.run(v))
-            print("")
+        # # Printing all variable values
+        # for v in self._graph.get_collection(tf.GraphKeys.VARIABLES):
+        #     print(v.name)
+        #     print(self._session.run(v))
+        #     print("")
 
         final_x = self._session.run(self._free_vars)
         self.set_state(final_x)
