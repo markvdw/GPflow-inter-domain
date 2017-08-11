@@ -822,16 +822,20 @@ class Combination(Kern):
 
 class Add(Combination):
     def K(self, X, X2=None, presliced=False):
-        return reduce(tf.add, [k.K(X, X2) for k in self.kern_list])
+        # return reduce(tf.add, [k.K(X, X2) for k in self.kern_list])
+        return tf.add_n([k.K(X, X2) for k in self.kern_list])
 
     def Kdiag(self, X, presliced=False):
-        return reduce(tf.add, [k.Kdiag(X) for k in self.kern_list])
+        # return reduce(tf.add, [k.Kdiag(X) for k in self.kern_list])
+        return tf.add_n([k.Kdiag(X) for k in self.kern_list])
 
     def Kzx(self, Z, X):
-        return reduce(tf.add, [k.Kzx(Z, X) for k in self.kern_list])
+        # return reduce(tf.add, [k.Kzx(Z, X) for k in self.kern_list])
+        return tf.add_n([k.Kzx(Z, X) for k in self.kern_list])
 
     def Kzz(self, Z):
-        return reduce(tf.add, [k.Kzz(Z) for k in self.kern_list])
+        # return reduce(tf.add, [k.Kzz(Z) for k in self.kern_list])
+        return tf.add_n([k.Kzz(Z) for k in self.kern_list])
 
 
 class Prod(Combination):

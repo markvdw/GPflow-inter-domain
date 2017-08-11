@@ -740,6 +740,8 @@ class Parameterized(Parentable):
         """
         for key in list(self.__dict__.keys()):
             if key[0] == '_' and key[-11:] == '_AF_storage':
+                if 'session' in getattr(self, key):
+                    getattr(self, key)['session'].close()
                 delattr(self, key)
         [p._kill_autoflow() for p in self.sorted_params if isinstance(p, Parameterized)]
 
