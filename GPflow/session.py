@@ -56,6 +56,8 @@ def get_session(*args, **kwargs):
     # Pass session configuration options
     if('config' not in kwargs):
         kwargs['config'] = tf.ConfigProto(**settings.session)
+        if settings.xla.jit == "on":
+            kwargs['config'].graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
     if settings.profiling.dump_timeline:
         return TracerSession(*args, **kwargs)
     else:
